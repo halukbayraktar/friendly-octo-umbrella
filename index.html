@@ -37,30 +37,36 @@
 
   /* ---- grid ---- */
   #grid{height:calc(100vh - var(--bar));display:grid;gap:var(--gap);padding:var(--gap);background:#000}
+  #grid[data-n="2"]{grid-template-columns:repeat(2,1fr);grid-template-rows:1fr}
   #grid[data-n="4"]{grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(2,1fr)}
   #grid[data-n="6"]{grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr)}
-  #grid[data-n="9"]{grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr)}
+  #grid[data-n="8"]{grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(2,1fr)}
+  @media (max-width:900px){
+    #grid[data-n="2"]{grid-template-columns:1fr;grid-template-rows:repeat(2,1fr)}
+    #grid[data-n="6"]{grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(3,1fr)}
+    #grid[data-n="8"]{grid-template-columns:repeat(2,1fr);grid-template-rows:repeat(4,1fr)}
+  }
   #grid.solo{grid-template-columns:1fr;grid-template-rows:1fr}
   #grid.solo .tile:not(.solo){display:none}
 
-  .tile{position:relative;background:#000;border-radius:6px;overflow:hidden;min-width:0;min-height:0;outline:2px solid transparent;transition:outline-color .15s}
+  .tile{position:relative;background:#000;border-radius:6px;overflow:hidden;min-width:0;min-height:0;outline:2px solid transparent;transition:outline-color .15s;display:flex;flex-direction:column}
   .tile.sound{outline-color:var(--ok)}
   .tile.dragover{outline-color:var(--accent2)}
   .tile.dragging{opacity:.5}
+  .tile .player{position:relative;flex:1;min-height:0;background:#000}
   .tile iframe,.tile video{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
   body.dragging .tile iframe,body.dragging .tile video{pointer-events:none}
 
-  .hud{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:4px;padding:6px;
-    background:linear-gradient(to bottom,rgba(0,0,0,.85),rgba(0,0,0,0));opacity:0;transition:opacity .15s;z-index:2}
-  .tile:hover .hud,.tile.hudpin .hud{opacity:1}
-  @media (hover:none){.hud{opacity:1}}
-  .hud .drag{cursor:grab;padding:4px 6px;border-radius:6px;background:rgba(255,255,255,.12);user-select:none}
+  /* Kontrol şeridi: videonun ÜZERİNDE değil, üstünde ayrı bir bant */
+  .hud{flex:none;height:30px;display:flex;align-items:center;gap:4px;padding:0 6px;background:var(--panel);border-bottom:1px solid var(--line)}
+  .hud .drag{cursor:grab;padding:3px 6px;border-radius:6px;background:rgba(255,255,255,.1);user-select:none;font-size:13px}
   .hud .drag:active{cursor:grabbing}
-  .hud .name{font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px #000}
-  .hud .live{font-size:10px;font-weight:700;background:var(--accent);color:#fff;border-radius:4px;padding:2px 5px;letter-spacing:.5px}
-  .hud button{padding:4px 7px;background:rgba(20,20,20,.75);border-color:rgba(255,255,255,.18);font-size:13px}
-  .hud button:hover{background:rgba(60,60,60,.9)}
+  .hud .name{font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
+  .hud .live{font-size:9px;font-weight:700;background:var(--accent);color:#fff;border-radius:4px;padding:2px 4px;letter-spacing:.5px}
+  .hud button{padding:3px 7px;font-size:12px;border-radius:6px}
   .hud button.on{background:var(--ok);border-color:var(--ok);color:#042}
+  .hud .sound{font-size:13px;min-width:30px}
+  @media (max-width:900px){ .hud .mv{display:none} }
 
   .empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted)}
   .empty button{background:var(--panel2)}
@@ -109,9 +115,10 @@
   <div class="brand"><span class="dot"></span>Çoklu TV</div>
   <div class="group">
     <span class="label">Ekran</span>
+    <button data-layout="2">2</button>
     <button data-layout="4">4</button>
     <button data-layout="6">6</button>
-    <button data-layout="9">9</button>
+    <button data-layout="8">8</button>
   </div>
   <div class="group">
     <button id="btnMuteAll" title="Tüm sesleri kapat">🔇 Sessiz</button>
@@ -164,6 +171,7 @@
     </header>
     <div class="body">
       <p class="note" style="margin-top:0">Yeşil çerçeveli kanallar şu an ekranda. Eklediğiniz özel kanalları × ile silebilirsiniz. Hazır kanallar silinemez ama ekrandan kaldırılabilir.</p>
+      <p class="note ok" id="listInfo"></p>
       <div id="manageList"></div>
     </div>
     <footer>
@@ -182,55 +190,62 @@
 
 /* =========================================================
    HAZIR KANALLAR
-   yt  : YouTube canlı yayın video ID'si (16 Ekim 2026'da doğrulandı)
+   yt  : YouTube canlı yayın video ID'si (20 Ekim 2026'da tek tek doğrulandı)
    ytc : YouTube kanal ID'si — kanalın o anki canlı yayınını otomatik bulur
    hls : Doğrudan .m3u8 yayın adresi (yayıncının resmi adresi)
    Bir kanalda hem yt hem ytc varsa önce yt denenir; yayın bitmişse otomatik olarak ytc'ye geçilir.
    ========================================================= */
 const CATALOG = [
-  // Haber
-  {id:'ntv',       name:'NTV',          group:'Haber',   color:'#1565c0', yt:'pqq5c6k70kk'},
-  {id:'haberturk', name:'Habertürk',    group:'Haber',   color:'#c62828', yt:'RNVNlJSUFoE'},
-  {id:'cnnturk',   name:'CNN Türk',     group:'Haber',   color:'#b71c1c', yt:'6N8_r2uwLEc', ytc:'UCV6zcRug6Hqp1UX_FdyUeBg'},
-  {id:'trthaber',  name:'TRT Haber',    group:'Haber',   color:'#0d47a1', ytc:'UCBgTP2LOFVPmq15W-RH-WXA'},
-  {id:'halktv',    name:'Halk TV',      group:'Haber',   color:'#d32f2f', yt:'8_qAqJdVAuM', ytc:'UCf_ResXZzE-o18zACUEmyvQ'},
-  {id:'sozcu',     name:'Sözcü TV',     group:'Haber',   color:'#e53935', yt:'ztmY_cCtUl0', ytc:'UCOulx_rep5O4i9y6AyDqVvw'},
-  {id:'haberglobal',name:'Haber Global',group:'Haber',   color:'#f57c00', yt:'EqoCJ8BPxtE', ytc:'UCtc-a9ZUIg0_5HpsPxEO7Qg'},
-  {id:'tv100',     name:'TV100',        group:'Haber',   color:'#1e88e5', yt:'4WSvLRk83-c', ytc:'UCndsdUW_oPLqpQJY9J8oIRg'},
-  {id:'tgrthaber', name:'TGRT Haber',   group:'Haber',   color:'#ad1457', ytc:'UCzgrZ-CndOoylh2_e72nSBQ'},
-  {id:'24tv',      name:'24 TV',        group:'Haber',   color:'#6a1b9a', ytc:'UC23zNxA_9G0LeEzm2O8KntQ'},
-  {id:'ekoltv',    name:'Ekol TV',      group:'Haber',   color:'#00897b', ytc:'UCPyphORXq-O6ilBBJjSAzww'},
-  {id:'tele1',     name:'Tele1',        group:'Haber',   color:'#ef6c00', ytc:'UCyUxJjpON6E1kloz1z_pOGg'},
-  {id:'krt',       name:'KRT TV',       group:'Haber',   color:'#2e7d32', ytc:'UCXMT6xj_tC9IVuc4nYdYY0Q'},
-  {id:'ulusal',    name:'Ulusal Kanal', group:'Haber',   color:'#8e24aa', yt:'Gcxkjxhbhk8', ytc:'UC6T0L26KS1NHMPbTwI1L4Eg'},
-  {id:'tvnet',     name:'TVNET',        group:'Haber',   color:'#1976d2', yt:'Z5bqy4gwEmc'},
-  {id:'liderhaber',name:'Lider Haber',  group:'Haber',   color:'#5d4037', yt:'ZgDiaQoLwMs'},
-  {id:'kozatv',    name:'Koza TV',      group:'Haber',   color:'#455a64', yt:'nZQk3nYkzZw'},
-  // Ekonomi
-  {id:'cnbce',     name:'CNBC-e',       group:'Ekonomi', color:'#004d40', yt:'aZ3ycSbSYBA', ytc:'UCaO-M1dXacMwtyg0Pvovk4w'},
-  {id:'bloomberght',name:'Bloomberg HT',group:'Ekonomi', color:'#37474f', hls:'https://ciner-live.daioncdn.net/bloomberght/bloomberght.m3u8'},
-  // Spor
-  {id:'beinhaber', name:'beIN Sports Haber', group:'Spor', color:'#512da8', yt:'i7UpPgxfZZ8'},
-  {id:'htspor',    name:'HT Spor',      group:'Spor',    color:'#c62828', yt:'gcWaPe_LBMc'},
-  // TRT (resmi m3u8 yayınları)
-  {id:'trt1',      name:'TRT 1',        group:'TRT',     color:'#1a237e', hls:'https://tv-trt1.medya.trt.com.tr/master.m3u8'},
-  {id:'trt2',      name:'TRT 2',        group:'TRT',     color:'#283593', hls:'https://tv-trt2.medya.trt.com.tr/master.m3u8'},
-  {id:'trthaber_hls',name:'TRT Haber (m3u8)',group:'TRT',color:'#0d47a1', hls:'https://tv-trthaber.medya.trt.com.tr/master.m3u8'},
-  {id:'trtworld',  name:'TRT World',    group:'TRT',     color:'#01579b', hls:'https://tv-trtworld.medya.trt.com.tr/master.m3u8'},
-  {id:'trtbelgesel',name:'TRT Belgesel',group:'TRT',     color:'#33691e', hls:'https://tv-trtbelgesel.medya.trt.com.tr/master.m3u8'},
-  {id:'trtcocuk',  name:'TRT Çocuk',    group:'TRT',     color:'#f9a825', hls:'https://tv-trtcocuk.medya.trt.com.tr/master.m3u8'},
-  {id:'trtavaz',   name:'TRT Avaz',     group:'TRT',     color:'#00695c', hls:'https://tv-trtavaz.medya.trt.com.tr/master.m3u8'},
-  {id:'trtturk',   name:'TRT Türk',     group:'TRT',     color:'#4e342e', hls:'https://tv-trtturk.medya.trt.com.tr/master.m3u8'},
-  {id:'trtmuzik',  name:'TRT Müzik',    group:'TRT',     color:'#880e4f', hls:'https://tv-trtmuzik.medya.trt.com.tr/master.m3u8'},
+  // ---- Haber (20 Ekim 2026'da tek tek doğrulandı: canlı + gömülebilir) ----
+  {id:'ntv',        name:'NTV',            group:'Haber',  color:'#1565c0', yt:'pqq5c6k70kk'},
+  {id:'haberturk',  name:'Habertürk',      group:'Haber',  color:'#c62828', yt:'RNVNlJSUFoE'},
+  {id:'cnnturk',    name:'CNN Türk',       group:'Haber',  color:'#b71c1c', yt:'6N8_r2uwLEc', ytc:'UCV6zcRug6Hqp1UX_FdyUeBg'},
+  {id:'trthaber',   name:'TRT Haber',      group:'Haber',  color:'#0d47a1', yt:'GefoJ-LXYfc', ytc:'UCBgTP2LOFVPmq15W-RH-WXA'},
+  {id:'ahaber',     name:'A Haber',        group:'Haber',  color:'#e53935', yt:'Rk8JyxJWi9o'},
+  {id:'halktv',     name:'Halk TV',        group:'Haber',  color:'#d32f2f', yt:'8_qAqJdVAuM', ytc:'UCf_ResXZzE-o18zACUEmyvQ'},
+  {id:'sozcu',      name:'Sözcü TV',       group:'Haber',  color:'#ef5350', yt:'ztmY_cCtUl0', ytc:'UCOulx_rep5O4i9y6AyDqVvw'},
+  {id:'haberglobal',name:'Haber Global',   group:'Haber',  color:'#f57c00', yt:'EqoCJ8BPxtE', ytc:'UCtc-a9ZUIg0_5HpsPxEO7Qg'},
+  {id:'tv100',      name:'TV100',          group:'Haber',  color:'#1e88e5', yt:'4WSvLRk83-c', ytc:'UCndsdUW_oPLqpQJY9J8oIRg'},
+  {id:'tgrthaber',  name:'TGRT Haber',     group:'Haber',  color:'#ad1457', yt:'WX29nlgdqho', ytc:'UCzgrZ-CndOoylh2_e72nSBQ'},
+  {id:'24tv',       name:'24 TV',          group:'Haber',  color:'#6a1b9a', yt:'6B-nPOdP720'},
+  {id:'krt',        name:'KRT TV',         group:'Haber',  color:'#2e7d32', yt:'yRBufi6xue8'},
+  {id:'ulusal',     name:'Ulusal Kanal',   group:'Haber',  color:'#8e24aa', yt:'Gcxkjxhbhk8', ytc:'UC6T0L26KS1NHMPbTwI1L4Eg'},
+  {id:'tvnet',      name:'TVNET',          group:'Haber',  color:'#1976d2', yt:'Z5bqy4gwEmc'},
+  {id:'benguturk',  name:'Bengü Türk',     group:'Haber',  color:'#00838f', yt:'oM8knhi5hzQ'},
+  {id:'ulketv',     name:'Ülke TV',        group:'Haber',  color:'#3949ab', yt:'RWHjsjauioY'},
+  {id:'akittv',     name:'Akit TV',        group:'Haber',  color:'#4e342e', yt:'bqQ86zWjZ2M'},
+  {id:'liderhaber', name:'Lider Haber',    group:'Haber',  color:'#5d4037', yt:'m-jz75mFqu4'},
+  {id:'kozatv',     name:'Koza TV',        group:'Haber',  color:'#455a64', yt:'rcZVJhX4aMU'},
+  {id:'trtworld',   name:'TRT World',      group:'Haber',  color:'#01579b', yt:'qBe59l6p_EU'},
+  // ---- Ekonomi ----
+  {id:'bloomberght',name:'Bloomberg HT',   group:'Ekonomi',color:'#37474f', yt:'j7B_zsL11Pw'},
+  {id:'cnbce',      name:'CNBC-e',         group:'Ekonomi',color:'#004d40', yt:'aZ3ycSbSYBA', ytc:'UCaO-M1dXacMwtyg0Pvovk4w'},
+  {id:'ekoturk',    name:'Ekotürk',        group:'Ekonomi',color:'#00695c', yt:'85QE3pzgEGU'},
+  // ---- Spor ----
+  {id:'aspor',      name:'A Spor',         group:'Spor',   color:'#c62828', yt:'nol9os2B8zE'},
+  {id:'beinhaber',  name:'beIN Sports Haber',group:'Spor', color:'#512da8', yt:'i7UpPgxfZZ8'},
+  {id:'htspor',     name:'HT Spor',        group:'Spor',   color:'#d84315', yt:'gcWaPe_LBMc'},
+  // ---- Genel (ulusal kanallar) ----
+  {id:'showmax',    name:'Show TV (Show MAX)',group:'Genel',color:'#f9a825', yt:'Y3vGHFrsqrs'},
+  // ---- TRT (resmi m3u8 yayınları; YouTube'da canlı yayını olmayan TRT kanalları) ----
+  {id:'trt1',       name:'TRT 1',          group:'TRT',    color:'#1a237e', hls:'https://tv-trt1.medya.trt.com.tr/master.m3u8'},
+  {id:'trt2',       name:'TRT 2',          group:'TRT',    color:'#283593', hls:'https://tv-trt2.medya.trt.com.tr/master.m3u8'},
+  {id:'trtspor',    name:'TRT Spor',       group:'TRT',    color:'#0277bd', hls:'https://tv-trtspor.medya.trt.com.tr/master.m3u8'},
+  {id:'trtbelgesel',name:'TRT Belgesel',   group:'TRT',    color:'#33691e', hls:'https://tv-trtbelgesel.medya.trt.com.tr/master.m3u8'},
+  {id:'trtcocuk',   name:'TRT Çocuk',      group:'TRT',    color:'#f9a825', hls:'https://tv-trtcocuk.medya.trt.com.tr/master.m3u8'},
+  {id:'trtavaz',    name:'TRT Avaz',       group:'TRT',    color:'#00695c', hls:'https://tv-trtavaz.medya.trt.com.tr/master.m3u8'},
+  {id:'trtturk',    name:'TRT Türk',       group:'TRT',    color:'#4e342e', hls:'https://tv-trtturk.medya.trt.com.tr/master.m3u8'},
+  {id:'trtmuzik',   name:'TRT Müzik',      group:'TRT',    color:'#880e4f', hls:'https://tv-trtmuzik.medya.trt.com.tr/master.m3u8'},
 ];
-const GROUP_ORDER = ['Haber','Ekonomi','Spor','TRT','Özel'];
-const DEFAULT_SLOTS = ['ntv','haberturk','cnnturk','trthaber','halktv','sozcu','haberglobal','tv100','tgrthaber'];
-const MAX = 9;
-const KEY = 'cokluTV.v1';
+const GROUP_ORDER = ['Haber','Ekonomi','Spor','Genel','TRT','Özel'];
+const DEFAULT_SLOTS = ['ntv','haberturk','cnnturk','trthaber','halktv','sozcu','haberglobal','ahaber'];
+const MAX = 8;
+const KEY = 'cokluTV.v2';
 
 /* ---------- durum ---------- */
 let state = load() || {layout:6, slots:DEFAULT_SLOTS.slice(), custom:[], alt:{}};
 if(!Array.isArray(state.slots)) state.slots = DEFAULT_SLOTS.slice();
+if(![2,4,6,8].includes(state.layout)) state.layout = 6;
 while(state.slots.length < MAX) state.slots.push(null);
 state.custom = state.custom || [];
 state.alt = state.alt || {};          // slotIndex -> true : bu ekranda alternatif (kanal ID) kaynağı kullan
@@ -287,26 +302,27 @@ function buildTile(i){
     tile.innerHTML = `<div class="empty"><div>Boş ekran</div><button data-act="pick">+ Kanal seç</button></div>`;
   } else {
     const src = sourceFor(ch, i);
-    tile.appendChild(buildPlayer(ch, src, i));
     const hasAlt = !!(ch.yt && ch.ytc);
     tile.insertAdjacentHTML('beforeend', `
       <div class="hud">
         <span class="drag" title="Sürükleyerek taşı">⠿</span>
         <span class="live">CANLI</span>
-        <span class="name">${esc(ch.name)}</span>
-        <button data-act="prev" title="Sola / yukarı taşı">◀</button>
-        <button data-act="next" title="Sağa / aşağı taşı">▶</button>
-        <button data-act="sound" title="Sadece bu kanalın sesini aç">🔊</button>
+        <span class="name" title="${esc(ch.name)}">${esc(ch.name)}</span>
+        <button class="mv" data-act="prev" title="Sola / yukarı taşı">◀</button>
+        <button class="mv" data-act="next" title="Sağa / aşağı taşı">▶</button>
+        <button class="sound" data-act="sound" title="Sadece bu kanalın sesini aç / kapat">🔇</button>
         <button data-act="pick" title="Kanalı değiştir">Değiştir</button>
-        ${hasAlt ? `<button data-act="alt" title="Yayın görünmüyorsa alternatif kaynağı dene">⟳</button>` : ''}
+        <button data-act="reload" title="Yayını yeniden yükle">⟳</button>
         <button data-act="solo" title="Tek başına büyüt / geri dön">⤢</button>
       </div>
+      <div class="player"></div>
       <div class="err">
         <b>Yayın alınamadı.</b> <span class="errmsg"></span><br>
         ${hasAlt ? `<button data-act="alt">Alternatif kaynağı dene</button>` : ''}
         <button data-act="reload">Yeniden yükle</button>
         <button data-act="pick">Başka kanal seç</button>
       </div>`);
+    tile.querySelector('.player').appendChild(buildPlayer(ch, src, i));
   }
 
   // sürükle-bırak
@@ -334,29 +350,35 @@ function buildTile(i){
     else if(act==='sound') toggleSound(i);
     else if(act==='solo') toggleSolo(tile);
     else if(act==='alt'){ state.alt[i] = !state.alt[i]; save(); render(); toast(state.alt[i] ? 'Alternatif kaynak (kanal ID) kullanılıyor' : 'Birincil kaynağa dönüldü'); }
-    else if(act==='reload'){ render(); }
+    else if(act==='reload'){ grid.replaceChild(buildTile(i), tile); applySound(); }
   });
   return tile;
 }
 
+/* YouTube oynatıcı: kendi kontrolleri kapalı (controls=0), kontrol bizim şeritten;
+   origin parametresi sayesinde ses aç/kapat komutları çalışır */
+const YT_PARAMS = () => {
+  const p = 'autoplay=1&mute=1&controls=0&fs=0&rel=0&iv_load_policy=3&disablekb=1&playsinline=1&enablejsapi=1';
+  return (location.protocol.startsWith('http') ? p + '&origin=' + encodeURIComponent(location.origin) : p);
+};
 function sourceFor(ch, i){
   if(ch.hls) return {type:'hls', url:ch.hls};
   const useAlt = state.alt[i] && ch.ytc;
-  if(ch.yt && !useAlt) return {type:'yt', url:`https://www.youtube.com/embed/${ch.yt}?autoplay=1&mute=1&enablejsapi=1&playsinline=1&rel=0&modestbranding=1`};
-  if(ch.ytc) return {type:'yt', url:`https://www.youtube.com/embed/live_stream?channel=${ch.ytc}&autoplay=1&mute=1&enablejsapi=1&playsinline=1&rel=0&modestbranding=1`};
-  return {type:'yt', url:`https://www.youtube.com/embed/${ch.yt}?autoplay=1&mute=1&enablejsapi=1&playsinline=1&rel=0`};
+  if(ch.yt && !useAlt) return {type:'yt', url:`https://www.youtube.com/embed/${ch.yt}?${YT_PARAMS()}`};
+  if(ch.ytc) return {type:'yt', url:`https://www.youtube.com/embed/live_stream?channel=${ch.ytc}&${YT_PARAMS()}`};
+  return {type:'yt', url:`https://www.youtube.com/embed/${ch.yt}?${YT_PARAMS()}`};
 }
 
 function buildPlayer(ch, src, i){
   if(src.type === 'yt'){
     const f = document.createElement('iframe');
     f.src = src.url;
-    f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
-    f.allowFullscreen = true;
+    f.allow = 'autoplay; encrypted-media; picture-in-picture';
     f.title = ch.name;
     f.addEventListener('load', () => {
-      // YouTube oynatıcıdan hata/durum olaylarını dinlemek için
+      // YouTube oynatıcıdan hata/durum olaylarını dinlemek ve ses durumunu uygulamak için
       try{ f.contentWindow.postMessage(JSON.stringify({event:'listening', id:i, channel:'widget'}), '*'); }catch(e){}
+      setTimeout(() => applySoundTo(f, i===soundSlot), 800);
     });
     return f;
   }
@@ -387,10 +409,11 @@ function showErr(i, msg){
 window.addEventListener('message', ev => {
   if(typeof ev.data !== 'string' || !/youtube/.test(ev.origin)) return;
   let d; try{ d = JSON.parse(ev.data); }catch(e){ return; }
-  if(d.event !== 'onError') return;
   const tile = [...grid.querySelectorAll('.tile')].find(t => { const f=t.querySelector('iframe'); return f && f.contentWindow === ev.source; });
   if(!tile) return;
   const i = +tile.dataset.i, ch = byId(state.slots[i]);
+  if(d.event === 'onReady'){ applySoundTo(tile.querySelector('iframe'), i===soundSlot); return; }
+  if(d.event !== 'onError') return;
   const codes = {2:'Geçersiz video ID', 5:'Oynatıcı hatası', 100:'Yayın bulunamadı / kaldırılmış', 101:'Yayıncı gömmeyi (embed) kapatmış', 150:'Yayıncı gömmeyi (embed) kapatmış',
     153:'YouTube, bilgisayardan doğrudan açılan (file://) sayfalara yayın vermiyor. Sayfanın bir web adresinde (https://…) barındırılması gerekir.'};
   if(ch && ch.yt && ch.ytc && !state.alt[i] && (d.info===100 || d.info===2)){
@@ -422,14 +445,14 @@ function toggleSolo(tile){
 
 /* ses: aynı anda yalnız bir ekran */
 function ytCmd(f, func, args){ try{ f.contentWindow.postMessage(JSON.stringify({event:'command', func, args:args||[]}), '*'); }catch(e){} }
+function applySoundTo(f, on){ if(!f) return; if(on){ ytCmd(f,'unMute'); ytCmd(f,'setVolume',[100]); ytCmd(f,'playVideo'); } else ytCmd(f,'mute'); }
 function applySound(){
   grid.querySelectorAll('.tile').forEach(t => {
     const i = +t.dataset.i, on = (i===soundSlot);
     t.classList.toggle('sound', on);
-    const b = t.querySelector('[data-act="sound"]'); if(b) b.classList.toggle('on', on);
-    const f = t.querySelector('iframe'); const v = t.querySelector('video');
-    if(f){ if(on){ ytCmd(f,'unMute'); ytCmd(f,'setVolume',[100]); } else ytCmd(f,'mute'); }
-    if(v){ v.muted = !on; }
+    const b = t.querySelector('[data-act="sound"]'); if(b){ b.classList.toggle('on', on); b.textContent = on ? '🔊' : '🔇'; }
+    applySoundTo(t.querySelector('iframe'), on);
+    const v = t.querySelector('video'); if(v){ v.muted = !on; }
   });
   $('#btnMuteAll').classList.toggle('active', soundSlot===null);
 }
@@ -527,8 +550,31 @@ $('#btnReset').addEventListener('click', () => {
   state = {layout:6, slots:DEFAULT_SLOTS.slice(), custom:[], alt:{}}; save(); $('#manage').classList.remove('open'); render();
 });
 
+/* ---------- haftalık güncellenen yayın listesi ----------
+   GitHub Actions her hafta kanalların güncel YouTube canlı yayın ID'lerini bulup
+   channels.json dosyasına yazar; sayfa açılışta bu listeyi okuyup hazır listeyi günceller. */
+let listInfo = '';
+function applyChannelList(data){
+  if(!data || !data.channels) return 0;
+  let n = 0;
+  for(const c of CATALOG){
+    const u = data.channels[c.id];
+    if(u && u.yt && /^[\w-]{11}$/.test(u.yt) && u.yt !== c.yt){ c.yt = u.yt; n++; }
+  }
+  listInfo = data.updated ? `Yayın adresleri son güncelleme: ${data.updated}` : '';
+  return n;
+}
+function loadChannelList(){
+  if(!location.protocol.startsWith('http') || typeof fetch !== 'function') return Promise.resolve(0);
+  try{
+    return fetch('channels.json?v=' + Date.now(), {cache:'no-store'})
+      .then(r => r.ok ? r.json() : null).then(applyChannelList).catch(() => 0);
+  }catch(e){ return Promise.resolve(0); }
+}
+
 /* ---------- başlat ---------- */
 render();
+loadChannelList().then(n => { if(n){ render(); } const el = $('#listInfo'); if(el) el.textContent = listInfo; });
 })();
 </script>
 </body>
