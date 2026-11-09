@@ -190,19 +190,19 @@
 
 /* =========================================================
    HAZIR KANALLAR
-   yt  : YouTube canlı yayın video ID'si (20 Ekim 2026'da tek tek doğrulandı)
+   yt  : YouTube canlı yayın video ID'si (9 Kasım 2026'da tek tek doğrulandı)
    ytc : YouTube kanal ID'si — kanalın o anki canlı yayınını otomatik bulur
    hls : Doğrudan .m3u8 yayın adresi (yayıncının resmi adresi)
    Bir kanalda hem yt hem ytc varsa önce yt denenir; yayın bitmişse otomatik olarak ytc'ye geçilir.
    ========================================================= */
 const CATALOG = [
-  // ---- Haber (20 Ekim 2026'da tek tek doğrulandı: canlı + gömülebilir) ----
+  // ---- Haber (9 Kasım 2026'da tek tek doğrulandı: canlı + gömülebilir) ----
   {id:'ntv',        name:'NTV',            group:'Haber',  color:'#1565c0', yt:'pqq5c6k70kk'},
   {id:'haberturk',  name:'Habertürk',      group:'Haber',  color:'#c62828', yt:'RNVNlJSUFoE'},
   {id:'cnnturk',    name:'CNN Türk',       group:'Haber',  color:'#b71c1c', yt:'6N8_r2uwLEc', ytc:'UCV6zcRug6Hqp1UX_FdyUeBg'},
-  {id:'trthaber',   name:'TRT Haber',      group:'Haber',  color:'#0d47a1', yt:'GefoJ-LXYfc', ytc:'UCBgTP2LOFVPmq15W-RH-WXA'},
+  {id:'trthaber',   name:'TRT Haber',      group:'Haber',  color:'#0d47a1', yt:'SiB4y9mXhHI', ytc:'UCBgTP2LOFVPmq15W-RH-WXA'},
   {id:'ahaber',     name:'A Haber',        group:'Haber',  color:'#e53935', yt:'Rk8JyxJWi9o'},
-  {id:'halktv',     name:'Halk TV',        group:'Haber',  color:'#d32f2f', yt:'8_qAqJdVAuM', ytc:'UCf_ResXZzE-o18zACUEmyvQ'},
+  {id:'halktv',     name:'Halk TV (yayın yok)',group:'Haber',color:'#d32f2f', ytc:'UCf_ResXZzE-o18zACUEmyvQ'},
   {id:'sozcu',      name:'Sözcü TV',       group:'Haber',  color:'#ef5350', yt:'ztmY_cCtUl0', ytc:'UCOulx_rep5O4i9y6AyDqVvw'},
   {id:'haberglobal',name:'Haber Global',   group:'Haber',  color:'#f57c00', yt:'EqoCJ8BPxtE', ytc:'UCtc-a9ZUIg0_5HpsPxEO7Qg'},
   {id:'tv100',      name:'TV100',          group:'Haber',  color:'#1e88e5', yt:'4WSvLRk83-c', ytc:'UCndsdUW_oPLqpQJY9J8oIRg'},
@@ -210,17 +210,17 @@ const CATALOG = [
   {id:'24tv',       name:'24 TV',          group:'Haber',  color:'#6a1b9a', yt:'6B-nPOdP720'},
   {id:'krt',        name:'KRT TV',         group:'Haber',  color:'#2e7d32', yt:'yRBufi6xue8'},
   {id:'ulusal',     name:'Ulusal Kanal',   group:'Haber',  color:'#8e24aa', yt:'Gcxkjxhbhk8', ytc:'UC6T0L26KS1NHMPbTwI1L4Eg'},
-  {id:'tvnet',      name:'TVNET',          group:'Haber',  color:'#1976d2', yt:'Z5bqy4gwEmc'},
-  {id:'benguturk',  name:'Bengü Türk',     group:'Haber',  color:'#00838f', yt:'oM8knhi5hzQ'},
-  {id:'ulketv',     name:'Ülke TV',        group:'Haber',  color:'#3949ab', yt:'RWHjsjauioY'},
-  {id:'akittv',     name:'Akit TV',        group:'Haber',  color:'#4e342e', yt:'bqQ86zWjZ2M'},
-  {id:'liderhaber', name:'Lider Haber',    group:'Haber',  color:'#5d4037', yt:'m-jz75mFqu4'},
+  {id:'tvnet',      name:'TVNET',          group:'Haber',  color:'#1976d2', yt:'XdI0jDqDv7g'},
+  {id:'benguturk',  name:'Bengü Türk',     group:'Haber',  color:'#00838f', yt:'Uu3sDWegyn4'},
+  {id:'ulketv',     name:'Ülke TV',        group:'Haber',  color:'#3949ab', yt:'ju1U4DdVess'},
+  {id:'akittv',     name:'Akit TV',        group:'Haber',  color:'#4e342e', yt:'kZ3J5NwD1VE'},
+  {id:'liderhaber', name:'Lider Haber',    group:'Haber',  color:'#5d4037', yt:'ZnM7kIMGQig'},
   {id:'kozatv',     name:'Koza TV',        group:'Haber',  color:'#455a64', yt:'rcZVJhX4aMU'},
-  {id:'trtworld',   name:'TRT World',      group:'Haber',  color:'#01579b', yt:'qBe59l6p_EU'},
+  {id:'trtworld',   name:'TRT World',      group:'Haber',  color:'#01579b', yt:'JV5w1MhzcfQ'},
   // ---- Ekonomi ----
   {id:'bloomberght',name:'Bloomberg HT',   group:'Ekonomi',color:'#37474f', yt:'j7B_zsL11Pw'},
   {id:'cnbce',      name:'CNBC-e',         group:'Ekonomi',color:'#004d40', yt:'aZ3ycSbSYBA', ytc:'UCaO-M1dXacMwtyg0Pvovk4w'},
-  {id:'ekoturk',    name:'Ekotürk',        group:'Ekonomi',color:'#00695c', yt:'85QE3pzgEGU'},
+  {id:'ekoturk',    name:'Ekotürk',        group:'Ekonomi',color:'#00695c', yt:'rsAtfTBKmIM'},
   // ---- Spor ----
   {id:'aspor',      name:'A Spor',         group:'Spor',   color:'#c62828', yt:'nol9os2B8zE'},
   {id:'beinhaber',  name:'beIN Sports Haber',group:'Spor', color:'#512da8', yt:'i7UpPgxfZZ8'},
@@ -238,7 +238,7 @@ const CATALOG = [
   {id:'trtmuzik',   name:'TRT Müzik',      group:'TRT',    color:'#880e4f', hls:'https://tv-trtmuzik.medya.trt.com.tr/master.m3u8'},
 ];
 const GROUP_ORDER = ['Haber','Ekonomi','Spor','Genel','TRT','Özel'];
-const DEFAULT_SLOTS = ['ntv','haberturk','cnnturk','trthaber','halktv','sozcu','haberglobal','ahaber'];
+const DEFAULT_SLOTS = ['ntv','haberturk','cnnturk','trthaber','ahaber','sozcu','haberglobal','tv100'];
 const MAX = 8;
 const KEY = 'cokluTV.v2';
 
