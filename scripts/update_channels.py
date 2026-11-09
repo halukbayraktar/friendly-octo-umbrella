@@ -14,7 +14,7 @@ CHANNELS = {
     "cnnturk":     "cnnturk",
     "trthaber":    "trthaber",
     "ahaber":      "ahaber",
-    "halktv":      "Halktvkanali",
+    "halktv":      "Halktv-eu",
     "sozcu":       "Sozcutelevizyonu",
     "haberglobal": "haberglobal",
     "tv100":       "tv100",
@@ -50,21 +50,25 @@ def fetch(url):
         return r.geturl(), r.read().decode("utf-8", "ignore")
 
 def find_live_id(handle):
+    """Kanalın /live sayfası canlı yayına yönleniyorsa o videonun ID'sini döndürür.
+    Sayfa içindeki rastgele videoId'ler KULLANILMAZ (öneri listesi yanlış kanal verebilir)."""
     final_url, html = fetch(f"https://www.youtube.com/@{handle}/live")
     m = re.search(r"[?&]v=([\w-]{11})", final_url)
     if m: return m.group(1)
     m = re.search(r'<link rel="canonical" href="https://www\.youtube\.com/watch\?v=([\w-]{11})"', html)
     if m: return m.group(1)
-    # canlı yayın yoksa sayfa kanal ana sayfasına döner; ID verme
-    if '"isLive":true' in html or '"isLiveNow":true' in html:
-        m = re.search(r'"videoId":"([\w-]{11})"', html)
-        if m: return m.group(1)
     return None
 
+def video_details(html):
+    i = html.find('"videoDetails":{')
+    return html[i:i+4000] if i >= 0 else ""
+
 def is_live(video_id):
+    """Yalnız bu videonun kendi videoDetails bloğuna bakar."""
     try:
         _, html = fetch(f"https://www.youtube.com/watch?v={video_id}")
-        return '"isLive":true' in html or '"isLiveNow":true' in html
+        vd = video_details(html)
+        return f'"videoId":"{video_id}"' in vd and '"isLive":true' in vd
     except Exception:
         return False
 
@@ -82,6 +86,8 @@ def main():
             except Exception as e:
                 print(f"  {cid}: hata ({e}), tekrar deneniyor", file=sys.stderr); time.sleep(3)
         prev = old.get(cid, {}).get("yt")
+        if vid and vid != prev and not is_live(vid):
+            vid = None
         # Eski ID hâlâ canlıysa onu koru (24 saat yayınlar program yayınlarına tercih edilir)
         if prev and vid and vid != prev and is_live(prev):
             vid = prev
@@ -89,7 +95,7 @@ def main():
             result[cid] = {"yt": vid}
             if vid != prev: changed += 1
             print(f"✔ {cid:12s} {vid}" + ("" if vid == prev else f"  (eski: {prev})"))
-        elif prev:
+        elif prev and is_live(prev):
             result[cid] = {"yt": prev}
             print(f"• {cid:12s} canlı yayın bulunamadı, eski ID korundu: {prev}")
         else:
