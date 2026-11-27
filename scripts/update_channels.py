@@ -7,14 +7,13 @@ sayfadan video ID'si okunur. Bulunamazsa eski ID korunur.
 """
 import json, re, sys, time, urllib.request, datetime, pathlib
 
-# id -> YouTube kanal adresi (handle). index.html içindeki CATALOG id'leriyle aynı.
+# id -> YouTube kanal adresi (handle) ya da UC... kanal kimliği. index.html içindeki CATALOG id'leriyle aynı.
 CHANNELS = {
     "ntv":         "NTV",
     "haberturk":   "haberturktv",
     "cnnturk":     "cnnturk",
     "trthaber":    "trthaber",
     "ahaber":      "ahaber",
-    "halktv":      "Halktv-eu",
     "sozcu":       "Sozcutelevizyonu",
     "haberglobal": "haberglobal",
     "tv100":       "tv100",
@@ -28,6 +27,10 @@ CHANNELS = {
     "akittv":      "akittv",
     "liderhaber":  "liderhabertv",
     "kozatv":      "KozaTv",
+    "ilketv":      "UCDTU7WnS4vRna7VJVwehxuA",
+    "tv5":         "UCP-0oW3M7DpjmPDutckOjiA",
+    "medyahaber":  "UC9iNphB47yGrxMgFd2uVHXQ",
+    "nowhaber":    "nowhaber_tr",
     "trtworld":    "trtworld",
     "bloomberght": "bloomberght",
     "cnbce":       "cnbce",
@@ -36,6 +39,8 @@ CHANNELS = {
     "beinhaber":   "beINSPORTST%C3%BCrkiye",
     "htspor":      "htspor",
     "showmax":     "showtv",
+    "tgrt":        "UCnwi4koEwXv4A5xTvkiWzWw",
+    "kanal7":      "UCcSTvyzpNjH__VgvDSArSEw",
 }
 
 OUT = pathlib.Path(__file__).resolve().parent.parent / "channels.json"
@@ -52,7 +57,8 @@ def fetch(url):
 def find_live_id(handle):
     """Kanalın /live sayfası canlı yayına yönleniyorsa o videonun ID'sini döndürür.
     Sayfa içindeki rastgele videoId'ler KULLANILMAZ (öneri listesi yanlış kanal verebilir)."""
-    final_url, html = fetch(f"https://www.youtube.com/@{handle}/live")
+    url = f"https://www.youtube.com/channel/{handle}/live" if handle.startswith("UC") else f"https://www.youtube.com/@{handle}/live"
+    final_url, html = fetch(url)
     m = re.search(r"[?&]v=([\w-]{11})", final_url)
     if m: return m.group(1)
     m = re.search(r'<link rel="canonical" href="https://www\.youtube\.com/watch\?v=([\w-]{11})"', html)
@@ -101,9 +107,22 @@ def main():
         else:
             print(f"✖ {cid:12s} canlı yayın bulunamadı")
         time.sleep(1.5)
+    # GÜVENLİK: GitHub sunucusundan YouTube bazen hiçbir şey doğrulatmaz.
+    # Doğrulanamayan kanallar için eski ID korunur; hiçbir şey doğrulanamadıysa dosyaya dokunulmaz.
+    verified = sum(1 for cid in result if result[cid].get("yt"))
+    for cid, prevd in old.items():
+        if cid not in result and prevd.get("yt"):
+            result[cid] = {"yt": prevd["yt"]}
+            print(f"• {cid:12s} doğrulanamadı, eski ID korundu: {prevd['yt']}")
+    if verified == 0 and old:
+        print("\nHiçbir kanal doğrulanamadı (YouTube erişimi engellenmiş olabilir); channels.json değiştirilmedi.")
+        return
+    if len(result) < len(old) * 0.7:
+        print(f"\nListe çok küçüldü ({len(old)} → {len(result)}); güvenlik için channels.json değiştirilmedi.")
+        return
     data = {"updated": datetime.date.today().isoformat(), "channels": result}
     OUT.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", "utf-8")
-    print(f"\n{len(result)} kanal yazıldı, {changed} değişti → {OUT}")
+    print(f"\n{len(result)} kanal yazıldı, {changed} değişti, {verified} doğrulandı → {OUT}")
 
 if __name__ == "__main__":
     main()
